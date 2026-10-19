@@ -26,6 +26,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { min-height: 100%; }
 body {
   margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 var(--font-body);
@@ -189,7 +190,9 @@ function say(key, kind) {
 function finish(key) {
   $("form").hidden = true;
   $("done").hidden = false;
-  if (key === "already") $("done").querySelector("span").textContent = T[lang].already;
+  const text = $("done").querySelector("span");
+  text.dataset.t = key === "already" ? "already" : "doneText";
+  text.textContent = T[lang][text.dataset.t];
 }
 
 async function subscribe(e) {
