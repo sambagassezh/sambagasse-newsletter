@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Idioma da newsletter · Sambagasse</title>
+<link rel="icon" href="images/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- Linked from the newsletter: idioma.html?l=<page language>#<e-mail>. The e-mail sits after the #,
+     so it never reaches a server log. Saves {email, language} in idioma_newsletter, then opens the
+     latest issue in the chosen language. -->
+<main>
+  <img class="logo" src="images/logo.png" alt="Sambagasse" onerror="this.hidden=true">
+  <div class="kicker" data-t="kicker">Newsletter Sambagasse</div>
+  <h1 data-t="title">Em que idioma?</h1>
+  <p class="lead" data-t="lead">Escolha o idioma em que você quer receber a newsletter daqui pra frente.</p>
+
+  <form id="form" novalidate>
+    <fieldset class="pick">
+      <legend class="sr" data-t="pick">Idioma da newsletter</legend>
+      <div class="choices">
+        <label><input type="radio" name="nl" value="pt" checked><span aria-hidden="true">🇧🇷</span>Português</label>
+        <label><input type="radio" name="nl" value="de"><span aria-hidden="true">🇩🇪</span>Deutsch</label>
+        <label><input type="radio" name="nl" value="en"><span aria-hidden="true">🇬🇧</span>English</label>
+      </div>
+    </fieldset>
+    <label class="sr" for="email" data-t="label">Seu e-mail</label>
+    <input type="email" id="email" name="email" autocomplete="email" inputmode="email" required placeholder="seu@email.com" data-t-placeholder="placeholder">
+    <input class="hp" type="text" id="website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <button class="cta" type="submit" id="submit" data-t="button">Salvar</button>
+    <p id="msg" role="status" aria-live="polite"></p>
+  </form>
+
+  <p class="note" data-t="note">Use o mesmo e-mail em que você recebe a newsletter.</p>
+</main>
+<footer><a href="https://sambagasse.ch" target="_blank" rel="noopener">sambagasse.ch</a></footer>
+
+<script>
+const SUPABASE_URL = "https://fixpfxxlnuhwzvbgcykm.supabase.co";
+const SUPABASE_KEY = "sb_publishable_9SUF0gKkr4337Ai9i4kCrg_pSaW2sSI";
+const PREFS = "idioma_newsletter";
+const LATEST = "2026-11"; // folder of the latest issue (same as index.html)
+
+const T = {
+  pt: { html: "pt-BR", kicker: "Newsletter Sambagasse", title: "Em que idioma?", pick: "Idioma da newsletter",
+        lead: "Escolha o idioma em que você quer receber a newsletter daqui pra frente.",
+        label: "Seu e-mail", placeholder: "seu@email.com", button: "Salvar", sending: "Salvando…",
+        note: "Use o mesmo e-mail em que você recebe a newsletter.",
+        invalid: "Esse e-mail parece incompleto. Confere e tenta de novo.",
+        error: "Não deu pra salvar agora. Tenta de novo em instantes." },
+  de: { html: "de-CH", kicker: "Newsletter Sambagasse", title: "Welche Sprache?", pick: "Sprache des Newsletters",
+        lead: "Wähle die Sprache, in der du den Newsletter ab jetzt bekommen möchtest.",
+        label: "Deine E-Mail-Adresse", placeholder: "deine@email.ch", button: "Speichern", sending: "Wird gespeichert…",
+        note: "Nimm die E-Mail-Adresse, mit der du den Newsletter bekommst.",
+        invalid: "Diese E-Mail-Adresse scheint unvollständig. Bitte prüfe sie nochmal.",
+        error: "Das Speichern hat gerade nicht geklappt. Bitte versuch es gleich nochmal." },
+  en: { html: "en", kicker: "Sambagasse newsletter", title: "Which language?", pick: "Newsletter language",
+        lead: "Choose the language you'd like to get the newsletter in from now on.",
+        label: "Your email", placeholder: "you@email.com", button: "Save", sending: "Saving…",
+        note: "Use the same email address that gets the newsletter.",
+        invalid: "That email looks incomplete. Please check it and try again.",
+        error: "We couldn't save that right now. Please try again in a moment." },
+};
+
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const lang = T[params.get("l")] ? params.get("l") : "pt";
+const t = T[lang];
+
+document.documentElement.lang = t.html;
+document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = t[el.dataset.t]; });
+document.querySelectorAll("[data-t-placeholder]").forEach((el) => { el.placeholder = t[el.dataset.tPlaceholder]; });
+document.querySelector(`input[name="nl"][value="${lang}"]`).checked = true;
+try { $("email").value = decodeURIComponent(location.hash.slice(1)).trim(); } catch (e) {}
+
+function say(key) { $("msg").textContent = key ? t[key] : ""; $("msg").className = key ? "error" : ""; }
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = $("email").value.trim().toLowerCase();
+  const language = document.querySelector('input[name="nl"]:checked').value;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { $("email").setAttribute("aria-invalid", "true"); say("invalid"); $("email").focus(); return; }
+  $("email").removeAttribute("aria-invalid");
+  const go = () => { location.href = `${LATEST}/${language}.html`; };
+  if ($("website").value) return go(); // robô: finge sucesso e não salva
+
+  const btn = $("submit");
+  btn.disabled = true; btn.textContent = t.sending; say("");
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${PREFS}`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ email, language }),
+    });
+    if (res.ok) return go();
+    console.error("Supabase:", res.status, await res.text());
+    say("error");
+  } catch (err) {
+    console.error("Supabase:", err);
+    say("error");
+  } finally {
+    btn.disabled = false; btn.textContent = t.button;
+  }
+});
+$("email").addEventListener("input", () => { $("email").removeAttribute("aria-invalid"); say(""); });
+</script>
+</body>
+</html>
